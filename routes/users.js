@@ -24,6 +24,8 @@ async function verify(token) {
 
 signToken = user => {
     return JWT.sign({
+        firstName: user.firstName,
+        surname: user.surname,
         iss: 'Bookend',
         sub: user._id,
         iat: new Date().getTime(),
@@ -92,8 +94,7 @@ router.post('/login', (req, res) => {
     }
     if (errors.length > 0) {
         res.status(400).json(errors);
-    }
-    else {
+    } else {
         User.findOne({email: email})
             .then(user => {
                 if (user) {
