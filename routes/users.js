@@ -101,7 +101,8 @@ router.post('/login', (req, res) => {
                     bcrypt.compare(password, user.password)
                         .then(ress => {
                             if (ress) {
-
+                                const token = signToken(user);
+                                res.status(200).json({token})
                             } else {
                                 errors.push({msg: 'Incorrect password!'});
                                 res.status(401).json(errors)

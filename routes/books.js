@@ -9,7 +9,8 @@ const Book = require('../models/Book');
 router.get('/', (req, res) => {
     Book.find({}, (err, data) => {
         if (err) throw err;
-        res.json(data);
+        if (data.length > 0) res.json(data);
+        else res.status(400).json([{msg: `There are no books currently in the system.`}]);
     });
 });
 
@@ -25,13 +26,18 @@ router.get('/t/:t', (req, res) => {
 
 //Create a Book
 router.post('/prePost', (req, res) => {
-    const {title, author, index} = req.body;
-    if (title === "" ^ author === "") {
-        res.status(400).json({"msg": "Title is mandatory"})
+    const {title, author,ISBN, index} = req.body;
+    if (ISBN !== ""){
+        bookWorm.digISBN(ISBN).then(title=>{
+           res.json({title:title,type:'ISBN'})
+        })
+    }
+    else if (title === "" && author === "") {
+        res.status(400).json({"msg": "Title, Author or ISBN is needed"})
     }
     else {
         let limit = index || 4;
-        const newBook = new Book({title, author, available: true});
+        // const newBook = new Book({title, author, available: true});
         bookWorm.dig(title, limit).then(json=>res.json(json));
         // newBook.save();
 

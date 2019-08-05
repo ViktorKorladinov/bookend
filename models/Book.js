@@ -9,17 +9,23 @@ const BookSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    genre:{
-        type: String,
+    genres:{
+        type: Array,
         required: true
     },
     available: {
         type: Boolean,
-        required: true
+        default: true
     },
-    date: {
+    dateAdded: {
         type: Date,
         default: Date.now
+    },
+    datePublished: {
+        type: String,
+    },
+    numberOfPages: {
+        type: String,
     }
 });
 const Book = mongoose.model('Book', BookSchema);
