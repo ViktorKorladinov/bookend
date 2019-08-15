@@ -21,10 +21,15 @@ const UserSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    role: {
-        type: String,
-        default: 'student'
+    roles: {
+        type: Array,
+        default: ['student']
     }
 });
+
+UserSchema.virtual('name').get(function () {
+    return `${this.firstName} ${this.surname}`
+});
+
 const User = mongoose.model('User', UserSchema);
 module.exports = User;

@@ -24,8 +24,8 @@ async function verify(token) {
 
 signToken = user => {
     return JWT.sign({
-        firstName: user.firstName,
-        surname: user.surname,
+        name: user.name,
+        roles: user.roles,
         iss: 'Bookend',
         sub: user._id,
         iat: new Date().getTime(),

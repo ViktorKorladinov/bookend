@@ -1,34 +1,35 @@
 const rp = require('request-promise');
 const url = 'https://www.databazeknih.cz/';
 const cheerio = require('cheerio');
+const download = require('image-downloader');
+const hash = require('object-hash');
 
-let result = [];
-
-const initialScraping = async link => {
-    let html = await rp(encodeURI(url + link));
-    let img = $("img.kniha_img", html);
-
-    return {'img': img[0].attribs.src, title: $('h1', html).text()}
-
-};
 const dig = async (search, index) => {
-    try {
-        let html = await rp(encodeURI(url + 'search?q=/' + search));
-        let things = $('p.new_search a.new', html);
-        result = [];
-        for (let i = 0; i < index; i++) {
-            await initialScraping(things[i].attribs.href)
-                .then(e => {
-                    result.push(e)
-                })
+    let options = {
+        uri: url + 'search?q=' + search,
+        transform: body => {
+            return cheerio.load(body);
         }
-    } catch (e) {
-        console.log(e);
-    }
-    return result
-};
-const digISBN = async (ISBN) => {
+    };
 
+    return rp(options).then($ => {
+        let result = [];
+        $('p.new_search ').each((elIndex, element) => {
+            if (elIndex === parseInt(index)) return false;
+            result.push({
+                title: $(element).find('a').text(),
+                image: $(element).find('a > img').attr('src'),
+                url: url + $(element).find('a').attr('href')
+            })
+        });
+        return result
+    }).catch(e => {
+        console.log(e);
+    });
+};
+
+
+const digISBN = async (ISBN) => {
     let options = {
         uri: encodeURI(url + 'search?q=' + ISBN),
         resolveWithFullResponse: true,
@@ -39,23 +40,42 @@ const digISBN = async (ISBN) => {
             console.log(err);
         });
 };
+
 const parseBook = async (url) => {
     let options = {
-        uri: encodeURI(url + "?show=binfo"),
+        uri: encodeURI(url + "?show=alldesc"),
         transform: body => {
             return cheerio.load(body);
         }
     };
     return rp(options).then($ => {
+
         const title = $('h1').text();
-        const genres = $('h5[itemprop="genre"]').text().split(', ');
-        const datePublished = $('span[itemprop="datePublished"]').text();
-        const numberOfPages = $('td[itemprop="numberOfPages"]').text();
+        if (title !== 'Vyhledávání') {
 
-        let book = {bookName: title, genres, datePublished, numberOfPages};
-        console.log(book);
+            const author = $('span[itemprop="author"]').text();
+            const desc = $('#bdetdesc').text();
+            const genres = $('h5[itemprop="genre"]').text().split(', ');
+            const datePublished = $('span[itemprop="datePublished"]').text();
+            const numberOfPages = $('td[itemprop="numberOfPages"]').text();
+            const photoUrl = $('img.kniha_img').attr('src');
+            let temp = $('span[itemprop="isbn"]').text();
+            let ISBN = temp !== "" ? temp : hash({title: title});
 
-        return title;
+            const extension ='.'+ photoUrl.split('.')[photoUrl.split('.').length - 1];
+            let imageOptions = {
+                url: photoUrl,
+                dest: `./public/images/${ISBN}${extension}`,
+                extractFilename: false
+            };
+
+            download.image(imageOptions)
+                .catch((err) => console.error(err));
+
+            let book = {title, author, desc, genres, datePublished, numberOfPages, ISBN, extension};
+
+            return {book, success: true};
+        } else return {msg: "Couldn't find a book with such ISBN", success: false};
     }).catch(err => {
         console.log(err);
     });
@@ -63,6 +83,7 @@ const parseBook = async (url) => {
 
 module.exports = {
     dig,
-    digISBN
+    digISBN,
+    parseBook,
 };
 
