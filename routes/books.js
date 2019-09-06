@@ -17,10 +17,14 @@ const storage = multer.diskStorage({
     }
 });
 const upload = multer({storage: storage});
-const {borrowDays, teacherLendingDays, studentLendingDays} = require("../config/config");
+const {borrowLimit} = require("../config/config");
 
 //Book model
 const Book = require('../models/Book');
+//User model
+const User = require('../models/User');
+//Genre model
+const Genre = require('../models/Genre');
 
 //Get All Books
 router.get('/all/:sort', async (req, res) => {
@@ -54,16 +58,21 @@ router.post('/prePost', (req, res) => {
     }
 });
 
-//Save the book chosen form the prePost selection
+//Save the book chosen from the prePost selection
 router.post('/post/url', (req, res) => {
     const {url} = req.body;
     if (url) {
-        bookWorm.parseBook(url).then(json => {
+        //Parse it from databazeknih.cz
+        bookWorm.parseBook(url).then(async json => {
             if (json.success) {
                 let book = json.book;
                 let title = book.title;
                 const newBook = new Book(book);
+                // Save it to our database
                 newBook.save();
+                // For each genre she classifies, check if it's in the database,
+                // if yes, add to the amount of books of that genre,otherwise create the genre;
+                await genreCheck(newBook.genres);
                 res.json({title: title, type: 'By Title'})
             } else res.status(400).json([{msg: book.msg}])
         })
@@ -76,14 +85,15 @@ router.post('/post/url', (req, res) => {
 router.post('/post/ISBN', (req, res) => {
     const {ISBN} = req.body;
     if (ISBN) {
-        bookWorm.digISBN(ISBN).then(json => {
+        bookWorm.digISBN(ISBN).then(async json => {
             if (json.success) {
                 let book = json.book;
                 let title = book.title;
                 const newBook = new Book(book);
                 newBook.save();
+                await genreCheck(newBook.genres);
                 res.json({title: title, type: 'ISBN'})
-            } else res.status(400).json([{msg: book.msg}])
+            } else res.status(400).json([{msg: json.msg}])
         })
     } else {
         res.status(400).json([{"msg": "ISBN field is required"}])
@@ -91,7 +101,7 @@ router.post('/post/ISBN', (req, res) => {
 });
 
 //Save a custom book
-router.post('/post/custom', (req, res) => {
+router.post('/post/custom', async (req, res) => {
     let errors = [];
     const book = req.body;
     let title = book.title;
@@ -106,10 +116,12 @@ router.post('/post/custom', (req, res) => {
     } else {
         const newBook = new Book(book);
         newBook.save();
+        await genreCheck(newBook.genres);
         res.json({title: title, type: 'custom', id: newBook._id})
     }
 });
 
+//Provide cover for image with specified id
 router.post('/post/custom/:bookId', upload.single('photo'), (req, res) => {
     let file = req.file;
     Book.findOneAndUpdate({_id: req.params.bookId}, {extension: path.extname(file.originalname)}, (err, data) => {
@@ -129,9 +141,10 @@ router.put('/id/:id', (req, res) => {
         res.status(418).json([{"msg": "All fields are empty; Nothing to update."}])
     } else {
         Book.findOneAndUpdate({_id: req.params.id}, {...req.body}, {new: true},
-            (err, data) => {
+            async (err, data) => {
                 if (err) res.status(500).json([{msg: 'Internal error'}]);
                 if (data) {
+                    await genreCheck(data.genres);
                     res.json(data)
                 } else {
                     res.status(400).json([{msg: 'The requested book is not in the database'}])
@@ -141,75 +154,64 @@ router.put('/id/:id', (req, res) => {
 });
 
 //Reserve a book
-router.get('/reserve/:id', passport.authenticate('jwt', {session: false}), (req, res) => {
-    Book.findById(req.params.id, (err, data) => {
-        if (data) {
-            if (data.status !== 'available') {
-                res.status(400).json([{msg: `${data.title} is not available!`}])
-            } else {
-                data.lastAccessed = Date.now();
-                data.state = 'reserved';
-                data.borrower = req.user.firstName + " " + req.user.surname;
-                data.borrowerId = req.user._id;
-                res.json([{msg: `You have ${borrowDays} days to collect the book.`}]);
-                data.save();
-            }
-        } else res.status(400).json([{msg: "This book isn't in our database"}]);
-    });
-});
-
-//Borrowed a book
-router.get('/borrow/:id', passport.authenticate('jwt', {session: false}), (req, res) => {
-    Book.findById(req.params.id, (err, data) => {
-        if (data) {
-            // noinspection FallThroughInSwitchStatementJS
-            switch (data.status) {
-                case 'borrowed':
-                case 'overdue':
-                    res.status(400).json([{msg: `${data.title} is currently lent to another user.`}]);
-                    break;
-                case 'reserved':
-                    if (parseInt(data.borrowerId) !== parseInt(req.user._id)) {
-                        res.status(400).json([{msg: `${data.title} is currently reserved for another user.`}]);
-                        break;
-                    }
-                case 'available':
-                    data.state = 'borrowed';
-                    data.lastAccessed = Date.now();
-                    data.borrower = req.user.firstName + " " + req.user.surname;
-                    data.borrowerId = req.user._id;
-                    if (req.user.roles.includes('teacher')) {
-                        data.returnDate = addDays(Date.now(), teacherLendingDays);
-                        res.json([{msg: `You have ${teacherLendingDays} days to read the book`}]);
+router.get('/reserve/:id', passport.authenticate('jwt', {session: false}), async (req, res) => {
+    User.findById(req.user._id, (err, user) => {
+        if (err) console.log(err);
+        else if (user.reserved.length <= borrowLimit) {
+            Book.findById(req.params.id, async (err, data) => {
+                if (data) {
+                    if (data.status !== 'available') {
+                        res.status(400).json([{msg: `${data.title} is not available!`}])
                     } else {
-                        data.returnDate = addDays(Date.now(), studentLendingDays);
-                        res.json([{msg: `You have ${studentLendingDays} days to read the book`}]);
+                        data.lastAccessed = Date.now();
+                        data.state = 'reserved';
+                        data.borrower = req.user.firstName + " " + req.user.surname;
+                        data.borrowerId = req.user._id;
+                        res.json(data);
+                        data.save();
+                        user.reserved.push({id: data.id, title: data.title});
+                        await user.save();
                     }
-                    data.save();
-                    break;
+                } else res.status(400).json([{msg: "This book isn't in our database"}]);
+            });
+        } else res.status(400).json(`You've reached the limit for reserved books of ${borrowLimit}`)
+    })
+});
+// Get all genres
+router.get('/genres', (req, res) => {
+    Genre.find({}, (err, data) => {
+        if (err) throw err;
+        else res.json(data);
+    })
+});
 
-            }
-        } else res.status(400).json([{msg: "This book isn't in our database"}]);
+// Get all books under the specified genre
+router.post('/genre', (req, res) => {
+    Book.find({genres: req.body.genre}, (err, data) => {
+        if (err) throw err;
+        else res.json(data)
+    });
+});
+
+// Search through genres.
+router.post('/genres/search', (req, res) => {
+    Genre.find({name:  new RegExp(req.body.genre, "i")}, (err, data) => {
+        if (err) throw err;
+        else res.json(data)
     });
 });
 
 
-//Return a book
-router.get('/return/:id', passport.authenticate('jwt', {session: false}), async (req, res) => {
-    let book = await Book.findById(req.params.id);
-    if (book.status !== 'available') {
-        if (req.user.roles.includes('teacher') || parseInt(book.borrowerId) === parseInt(req.user._id)) {
-            book.state = 'available';
-            book.save();
-            res.json([{msg: "returned"}]);
-        } else res.status(401).json([{msg: 'You are not allowed to return this book'}])
-    } else res.status(400).json([{msg: `${book.title} isn't reserved nor borrowed`}]);
-});
-
-addDays = (date, days) => {
-    let result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
+genreCheck = async (arr) => {
+    for await (let name of arr) {
+        let genre = await Genre.findOne({name});
+        if (genre) {
+            genre.amount = genre.amount + 1;
+        } else {
+            genre = new Genre({name})
+        }
+        genre.save();
+    }
 };
 
 module.exports = router;

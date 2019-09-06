@@ -52,7 +52,7 @@ const BookSchema = new mongoose.Schema({
     borrowerId: {
         type: String,
     },
-}, {toJSON: {virtuals: true}});
+}, {toJSON: {virtuals: true}, toObject: {virtuals: true}});
 
 BookSchema.virtual('status').get(function () {
     switch (this.state) {

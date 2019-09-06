@@ -134,10 +134,11 @@ router.post('/google', (req, res) => {
                             firstName: payload['given_name'],
                             surname: payload['family_name'],
                             email: payload['email'],
-                            role: 'student'
+                            role: 'student',
+                            pic: payload['picture']
                         });
                         user.save();
-                        res.status(201).json(user);
+                        res.status(201).json({token: signToken(user)});
                         break;
                     case "gyarab.cz":
                         user = new User({
@@ -147,7 +148,6 @@ router.post('/google', (req, res) => {
                             role: 'bookBender'
                         });
                         user.save();
-
                         break;
                 }
                 if (user !== -1) res.status(201).json(user);

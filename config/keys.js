@@ -1,4 +1,5 @@
 module.exports = {
+    MongoLocalURI : 'mongodb://localhost:27017/bookend',
     MongoURI : 'mongodb+srv://admin:admin@node-backend-db-jlsei.mongodb.net/test?retryWrites=true&w=majority',
     JWT_SECRET:'451Fahrenheit',
     GOOGLE_SECRET: 'k8Tzvf8B3jMxY1n-52Q71px8',
