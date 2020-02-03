@@ -33,7 +33,7 @@ const BookSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
-    extension: {
+    image_link: {
         type: String,
     },
     state: {

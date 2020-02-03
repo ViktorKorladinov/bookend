@@ -3,6 +3,7 @@ const url = 'https://www.databazeknih.cz/';
 const cheerio = require('cheerio');
 const download = require('image-downloader');
 const hash = require('object-hash');
+const {uploadPhoto} = require("../routes/images");
 
 const dig = async (search, index) => {
     let options = {
@@ -29,7 +30,7 @@ const dig = async (search, index) => {
 };
 
 
-const digISBN = async (ISBN) => {
+const digISBN = (ISBN) => {
     let options = {
         uri: encodeURI(url + 'search?q=' + ISBN),
         resolveWithFullResponse: true,
@@ -48,7 +49,7 @@ const parseBook = async (url) => {
             return cheerio.load(body);
         }
     };
-    return rp(options).then($ => {
+    return rp(options).then(async $ => {
 
         const title = $('h1').text();
         if (title !== 'Vyhledávání') {
@@ -71,9 +72,9 @@ const parseBook = async (url) => {
 
             download.image(imageOptions)
                 .catch((err) => console.error(err));
-
-            let book = {title, author, desc, genres, datePublished, numberOfPages, ISBN, extension};
-
+            let image_link = await uploadPhoto(`./public/images/${ISBN}${extension}`);
+            image_link = image_link.data.link;
+            let book = {title, author, desc, genres, datePublished, numberOfPages, ISBN, image_link};
             return {book, success: true};
         } else return {msg: "Couldn't find a book with such ISBN", success: false};
     }).catch(err => {

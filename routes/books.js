@@ -3,21 +3,10 @@ const router = express.Router();
 const passport = require("passport");
 const bookWorm = require("../scrapers/bookWorm");
 const hash = require('object-hash');
-const multer = require("multer");
+const multer = require('multer');
 const path = require('path');
-const storage = multer.diskStorage({
-    destination: path.join(__dirname, '../public/images'),
-    filename: function (req, file, cb) {
-        let imgName = "";
-        Book.findOne({_id: req.params.bookId}, (err, data) => {
-            if (err) throw err;
-            else cb(null, data.ISBN + path.extname(file.originalname))
-        });
-
-    }
-});
-const upload = multer({storage: storage});
 const {borrowLimit} = require("../config/config");
+const {uploadPhoto} = require("./images");
 
 //Book model
 const Book = require('../models/Book');
@@ -25,6 +14,7 @@ const Book = require('../models/Book');
 const User = require('../models/User');
 //Genre model
 const Genre = require('../models/Genre');
+
 
 //Get All Books
 router.get('/all/:sort', async (req, res) => {
@@ -109,7 +99,7 @@ router.post('/post/custom', async (req, res) => {
     if (book.ISBN === '') book.ISBN = hash({title: title});
 
     Object.keys(book).forEach((key) => {
-        if (book[key] === "") errors.push([{msg: key + 'is required'}]);
+        if (book[key] === "") errors.push({msg: key + 'is required'});
     });
     if (errors.length > 0) {
         res.status(400).json(errors);
@@ -121,14 +111,30 @@ router.post('/post/custom', async (req, res) => {
     }
 });
 
-//Provide cover for image with specified id
-router.post('/post/custom/:bookId', upload.single('photo'), (req, res) => {
+//Provide cover for image with specified id - saves locally - initially the photos were stored on the server,
+// but uploading it to a third party server ensures the client can see them,
+//even if the application is currently run on another server.
+
+const storage = multer.diskStorage({
+    destination: path.join(__dirname, '../public/images'),
+    filename: function (req, file, cb) {
+        Book.findOne({_id: req.params.bookId}, (err, data) => {
+            if (err) throw err;
+            else cb(null, data.ISBN + path.extname(file.originalname))
+        });
+
+    }
+});
+const upload = multer({storage: storage});
+
+router.post('/post/custom/:bookId', upload.single('photo'), async (req, res) => {
     let file = req.file;
-    Book.findOneAndUpdate({_id: req.params.bookId}, {extension: path.extname(file.originalname)}, (err, data) => {
+    Book.findOneAndUpdate({_id: req.params.bookId}, {image_id: await uploadPhoto(file.path)}, async (err, data) => {
         if (err) throw err;
-        else
-            imgName = data.ISBN;
-        res.json([{msg: 'Hey'}]);
+        else {
+            response = await uploadPhoto(file.path);
+            res.json(response);
+        }
     });
 
 
@@ -195,7 +201,7 @@ router.post('/genre', (req, res) => {
 
 // Search through genres.
 router.post('/genres/search', (req, res) => {
-    Genre.find({name:  new RegExp(req.body.genre, "i")}, (err, data) => {
+    Genre.find({name: new RegExp(req.body.genre, "i")}, (err, data) => {
         if (err) throw err;
         else res.json(data)
     });
