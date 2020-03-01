@@ -180,7 +180,7 @@ router.get('/reserve/:id', passport.authenticate('jwt', {session: false}), async
                     }
                 } else res.status(400).json([{msg: "This book isn't in our database"}]);
             });
-        } else res.status(400).json(`You've reached the limit for reserved books of ${borrowLimit}`)
+        } else res.status(400).json([{msg:`You've reached the limit for reserved books of ${borrowLimit}`}])
     })
 });
 // Get all genres

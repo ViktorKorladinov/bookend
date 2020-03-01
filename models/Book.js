@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const {borrowDays, teacherLendingDays, studentLendingDays} = require("../config/config");
+const {borrowDays} = require("../config/config");
 
 
 const BookSchema = new mongoose.Schema({
