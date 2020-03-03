@@ -15,13 +15,15 @@ const dig = async (search, index) => {
 
     return rp(options).then($ => {
         let result = [];
-        $('p.new_search ').each((elIndex, element) => {
-            if (elIndex === parseInt(index)) return false;
-            result.push({
-                title: $(element).find('a').text(),
-                image: $(element).find('a > img').attr('src'),
-                url: url + $(element).find('a').attr('href')
-            })
+        $('p.new').each((elIndex, element) => {
+            if (elIndex !== 0) {
+                if (elIndex === parseInt(index) + 1) return false;
+                result.push({
+                    title: $(element).find('a').text(),
+                    image: $(element).find('a > img').attr('src'),
+                    url: url + $(element).find('a').attr('href')
+                })
+            }
         });
         return result
     }).catch(e => {
@@ -63,7 +65,7 @@ const parseBook = async (url) => {
             let temp = $('span[itemprop="isbn"]').text();
             let ISBN = temp !== "" ? temp : hash({title: title});
 
-            const extension ='.'+ photoUrl.split('.')[photoUrl.split('.').length - 1];
+            const extension = '.' + photoUrl.split('.')[photoUrl.split('.').length - 1];
             let imageOptions = {
                 url: photoUrl,
                 dest: `./public/images/${ISBN}${extension}`,
