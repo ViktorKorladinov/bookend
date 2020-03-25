@@ -63,8 +63,8 @@ router.post('/post/url', (req, res) => {
                 // For each genre she classifies, check if it's in the database,
                 // if yes, add to the amount of books of that genre,otherwise create the genre;
                 await genreCheck(newBook.genres);
-                res.json({title: title, type: 'By Title'})
-            } else res.status(400).json([{msg: book.msg}])
+                res.status(201).json({title: title})
+            } else res.status(400).json([{msg: json.book.msg}])
         })
     } else {
         res.status(400).json([{"msg": "You need to choose a book!"}])
@@ -82,7 +82,7 @@ router.post('/post/ISBN', (req, res) => {
                 const newBook = new Book(book);
                 newBook.save();
                 await genreCheck(newBook.genres);
-                res.json({title: title, type: 'ISBN'})
+                res.status(201).json({title: title})
             } else res.status(400).json([{msg: json.msg}])
         })
     } else {
@@ -93,14 +93,15 @@ router.post('/post/ISBN', (req, res) => {
 //Save a custom book
 router.post('/post/custom', async (req, res) => {
     let errors = [];
-    const book = req.body;
+    let book = req.body;
     let title = book.title;
 
     if (book.ISBN === '') book.ISBN = hash({title: title});
 
     Object.keys(book).forEach((key) => {
-        if (book[key] === "") errors.push({msg: key + 'is required'});
+        if (book[key] === "") errors.push({msg: key + ' is required'});
     });
+    book.image_link = "";
     if (errors.length > 0) {
         res.status(400).json(errors);
     } else {
@@ -118,7 +119,7 @@ router.post('/post/custom', async (req, res) => {
 const storage = multer.diskStorage({
     destination: path.join(__dirname, '../public/images'),
     filename: function (req, file, cb) {
-        Book.findOne({_id: req.params.bookId}, (err, data) => {
+        Book.findOne({_id: req.params["bookId"]}, (err, data) => {
             if (err) throw err;
             else cb(null, data.ISBN + path.extname(file.originalname))
         });
@@ -127,17 +128,12 @@ const storage = multer.diskStorage({
 });
 const upload = multer({storage: storage});
 
-router.post('/post/custom/:bookId', upload.single('photo'), async (req, res) => {
+router.put('/post/custom/:bookId', upload.single('photo'), async (req, res) => {
     let file = req.file;
-    Book.findOneAndUpdate({_id: req.params.bookId}, {image_id: await uploadPhoto(file.path)}, async (err, data) => {
-        if (err) throw err;
-        else {
-            response = await uploadPhoto(file.path);
-            res.json(response);
-        }
-    });
-
-
+    let image_link = await uploadPhoto(file.path);
+    image_link = image_link["data"]["link"];
+    let doc = await Book.findOneAndUpdate({_id: req.params["bookId"]}, {image_link}, {new: true});
+    return res.json(doc.image_link)
 });
 
 
@@ -180,9 +176,10 @@ router.get('/reserve/:id', passport.authenticate('jwt', {session: false}), async
                     }
                 } else res.status(400).json([{msg: "This book isn't in our database"}]);
             });
-        } else res.status(400).json([{msg:`You've reached the limit for reserved books of ${borrowLimit}`}])
+        } else res.status(400).json([{msg: `You've reached the limit for reserved books of ${borrowLimit}`}])
     })
 });
+
 // Get all genres
 router.get('/genres', (req, res) => {
     Genre.find({}, (err, data) => {
@@ -193,7 +190,7 @@ router.get('/genres', (req, res) => {
 
 // Get all books under the specified genre
 router.post('/genre', (req, res) => {
-    Book.find({genres: req.body.genre}, (err, data) => {
+    Book.find({genres: req.body["genre"]}, (err, data) => {
         if (err) throw err;
         else res.json(data)
     });
@@ -201,7 +198,7 @@ router.post('/genre', (req, res) => {
 
 // Search through genres.
 router.post('/genres/search', (req, res) => {
-    Genre.find({name: new RegExp(req.body.genre, "i")}, (err, data) => {
+    Genre.find({name: new RegExp(req.body["genre"], "i")}, (err, data) => {
         if (err) throw err;
         else res.json(data)
     });

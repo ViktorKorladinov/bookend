@@ -72,9 +72,9 @@ const parseBook = async (url) => {
                 extractFilename: false
             };
 
-            download.image(imageOptions)
-                .catch((err) => console.error(err));
-            let image_link = await uploadPhoto(`./public/images/${ISBN}${extension}`);
+            let filename = await download.image(imageOptions);
+            filename = filename["filename"];
+            let image_link = await uploadPhoto(filename);
             image_link = image_link.data.link;
             let book = {title, author, desc, genres, datePublished, numberOfPages, ISBN, image_link};
             return {book, success: true};

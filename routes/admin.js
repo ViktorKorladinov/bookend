@@ -8,8 +8,6 @@ const {teacherLendingDays, studentLendingDays} = require("../config/config");
 const Book = require('../models/Book');
 //User model
 const User = require('../models/User');
-//Genre model
-const Genre = require('../models/Genre');
 
 
 //Get all taken books
@@ -41,7 +39,7 @@ router.get('/users/:type', async (req, res) => {
 
 
 //Lend a book
-router.post('/borrow', passport.authenticate('jwt', {session: false}), async (req, res) => {
+router.post('/lend', passport.authenticate('jwt', {session: false}), async (req, res) => {
     let errors = [];
     let books = [];
     let user = await User.findOne({email: req.body.email});
