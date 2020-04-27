@@ -32,8 +32,8 @@ router.get('/search/:type/:phrase', passport.authenticate('jwt', {session: false
 
 //Get all users that have currently borrowed books
 router.get('/users/:type', async (req, res) => {
-    let book = await User.find({[req.params.type]: {$exists: true, $ne: []}});
-    res.json(book)
+    let user = await User.find({[req.params.type]: {$exists: true, $ne: []}});
+    res.json(user)
 
 });
 

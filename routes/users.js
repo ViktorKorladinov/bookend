@@ -161,8 +161,10 @@ router.post('/google', (req, res) => {
     });
 });
 
-router.get('/', passport.authenticate('jwt', {session: false}), (req, res) => {
-    res.json({msg: "You're in!"})
+router.get('/debt', passport.authenticate('jwt', {session: false}), (req, res) => {
+    user = req.user;
+    delete user["password"];
+    res.json(user)
 });
 
 

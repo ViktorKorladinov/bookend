@@ -139,7 +139,7 @@ router.put('/post/custom/:bookId', upload.single('photo'), async (req, res) => {
 
 //Update a Book
 router.put('/id/:id', (req, res) => {
-    if (!req.body.length > 0) {
+    if (req.body.length === 0) {
         res.status(418).json([{"msg": "All fields are empty; Nothing to update."}])
     } else {
         Book.findOneAndUpdate({_id: req.params.id}, {...req.body}, {new: true},
