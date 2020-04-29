@@ -59,7 +59,7 @@ router.post('/lend', passport.authenticate('jwt', {session: false}), async (req,
                         break;
                     //If reserved, check if it's reserved by the student who tries to borrow it; proceed only if it is.
                     case 'reserved':
-                        if (book.borrowerId !== user._id) {
+                        if (book.borrowerId !== user.id) {
                             errors.push({msg: `${book.title} is currently reserved for another user.`});
                             break;
                         }
